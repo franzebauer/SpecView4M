@@ -30,7 +30,7 @@ import pandas as pd
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
 from viewer import (read_spectrum, read_desi_spectrum, build_desi_index,
-                    build_alt_index, _coord_key, CSV_DEFAULT)
+                    build_l1_index, _coord_key, CSV_DEFAULT)
 
 import matplotlib
 matplotlib.use("Agg")
@@ -50,6 +50,7 @@ COND_CSV = os.path.join(BASE, "conditions.csv")
 
 
 def _cache_path(recon):
+    # default reduction = the L1 combination (LR4); 'alt' = my combination (LR)
     return os.path.join(OUTDIR, f"desi_ratio_cache"
                         f"{'_alt' if recon == 'alt' else ''}.npz")
 
@@ -108,15 +109,16 @@ def _regrid(wave, flux, extra_mask=None):
     return np.interp(GRID, wave[m], flux[m], left=np.nan, right=np.nan)
 
 
-def compute_ratios(csv_path, recon="primary"):
+def compute_ratios(csv_path, recon="l1"):
     """Return (ratios[Nspec×Ngrid] float32, filenames[Nspec]).
 
-    recon='primary' uses the LR/ files; recon='alt' uses the alternate
-    reduction in LR4/ (matched by coord), keeping the same LR∩DESI sample."""
+    recon='l1' (default) uses the L1 combination in LR4/ (matched by coord);
+    recon='alt' uses my combination in LR/ (the CSV filepath). Same LR∩DESI
+    source sample either way."""
     df = pd.read_csv(csv_path, low_memory=False)
     csv_dir = os.path.dirname(os.path.abspath(csv_path))
     desi_index = build_desi_index()
-    alt_lr = build_alt_index().get("LR", {}) if recon == "alt" else {}
+    l1_lr = build_l1_index().get("LR", {}) if recon == "l1" else {}
     lr = df[df["category"] == "LR"].copy()
     lr["coord"] = lr["filename"].apply(_coord_key)
     lr = lr[lr["coord"].map(lambda k: k in desi_index)].reset_index(drop=True)
@@ -127,12 +129,12 @@ def compute_ratios(csv_path, recon="primary"):
     names  = lr["filename"].to_numpy()
     t0, kept = time.time(), 0
     for i, row in lr.iterrows():
-        if recon == "alt":
-            fp = alt_lr.get(row["coord"])
+        if recon == "l1":
+            fp = l1_lr.get(row["coord"])   # LR4 (L1 combination)
             if not fp:
                 continue
         else:
-            fp = str(row["filepath"])
+            fp = str(row["filepath"])      # LR (my combination)
             if not os.path.isabs(fp):
                 fp = os.path.join(csv_dir, fp)
         w, f, e, _sky = read_spectrum(fp)
@@ -158,7 +160,7 @@ def compute_ratios(csv_path, recon="primary"):
     return ratios, names
 
 
-def load_or_compute(csv_path, recompute, recon="primary"):
+def load_or_compute(csv_path, recompute, recon="l1"):
     cache = _cache_path(recon)
     if os.path.exists(cache) and not recompute:
         z = np.load(cache, allow_pickle=True)
@@ -296,8 +298,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("csv", nargs="?", default=CSV_DEFAULT)
     ap.add_argument("--split", choices=list(SPLITS), default="rmag")
-    ap.add_argument("--recon", choices=["primary", "alt"], default="primary",
-                    help="which 4MOST reduction to use (alt = LR4/)")
+    ap.add_argument("--recon", choices=["l1", "alt"], default="l1",
+                    help="4MOST reduction: l1 = L1 combination LR4/ (default), "
+                         "alt = my combination LR/")
     ap.add_argument("--seeing-max", type=float, default=None,
                     help="keep only spectra with DIMM seeing < this (arcsec)")
     ap.add_argument("--normalize", action="store_true",
@@ -314,7 +317,8 @@ def main():
     values = meta[col].to_numpy() if col else np.zeros(len(filenames))
 
     recon_tag  = "_alt" if args.recon == "alt" else ""
-    recon_note = "  [alt reduction]" if args.recon == "alt" else ""
+    recon_note = ("  [my combination LR]" if args.recon == "alt"
+                  else "  [L1 combination]")
     base_mask, note, tag = None, recon_note, args.split
     if args.seeing_max is not None:
         base_mask = np.isfinite(meta["seeing"].to_numpy()) & \

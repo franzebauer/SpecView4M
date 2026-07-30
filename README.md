@@ -27,11 +27,11 @@ absorption lines at the source redshift, and tag each spectrum's quality to disk
 - Independent **4MOST** and **DESI** Gaussian-smoothing sliders (σ in pixels).
 - **Sky-scale** slider.
 - Component toggles: `raw`, `smooth`, `sky`, `err`, `desi`, `alt`, `lines`.
-- Colour scheme: gray = raw, blue = smoothed, green = sky, red = error, pink = DESI, orange = alternate reduction.
+- Colour scheme: gray = raw, blue = smoothed, green = sky, red = error, pink = DESI, orange = the `alt` (LR) overlay.
 
 **Overlays**
 - **DESI DR1** overlay (pink), matched by coordinate string via `SPV_DESI_match.fits` → `DESI_spectra/targetid_<id>.json`.
-- **Alternate-reduction** overlay (orange) from parallel `LR4/ HIZ4/ LRD4/ HR4` directories, matched by coordinate.
+- **Two reductions:** the default (main) trace is the **L1 combination** in the parallel `LR4/ HIZ4/ LRD4/ HR4` directories (matched by coordinate; falls back to the `LR/` spectrum where no `…4` file exists). The **`alt`** overlay (orange) is your own combination — the `LR/` spectrum from the CSV.
 - **Redshifted line markers** — major AGN/galaxy emission (cyan) and stellar absorption (amber) lines drawn at their observed wavelength `rest·(1+z)` using the 4XP (`*_xpca.fits`) redshift, with a per-spectrum **custom-z override** (toggle + 0–6.5 slider + text box).
 
 **Quality tagging** (shown when *per page = 1*)
@@ -109,7 +109,7 @@ python plot_desi_ratio.py [spectra_headers.csv] [options]
 | `--split rmag` | one panel per `CAT_MAG` bin (17-18 … 21-22) |
 | `--normalize` | divide each ratio by its value at the norm wavelength first — isolates the *spectral shape* from the per-object flux offset |
 | `--norm-wave X` | normalisation wavelength in Å (default 5500) |
-| `--recon alt` | use the alternate reduction (`LR4/`, matched by coord) as the 4MOST side |
+| `--recon l1` \| `alt` | which 4MOST reduction to compare: `l1` (default) = L1 combination in `LR4/`; `alt` = your combination in `LR/` |
 | `--seeing-max X` | keep only spectra with DIMM seeing (`FWHM_AMBI` from `conditions.csv`) below X″ |
 | `--recompute` | rebuild the per-spectrum ratio cache from the spectra |
 
@@ -122,7 +122,7 @@ python plot_desi_ratio.py --split none --normalize
 # by magnitude, restricted to good seeing
 python plot_desi_ratio.py --split rmag --seeing-max 1.0
 
-# by SNR, using the alternate reduction
+# by SNR, using your own (LR) combination instead of the L1 default
 python plot_desi_ratio.py --split snr --recon alt
 ```
 
@@ -145,11 +145,11 @@ the spectra).
 | path | purpose | required |
 |------|---------|----------|
 | `spectra_headers.csv` | one row per spectrum: `filepath`, `filename`, `category` (LR/HR/LRD/HIZ), `RA`, `DEC`, SNR/mag columns, … | **yes** |
-| `LR/ HR/ LRD/ HIZ/` | 4MOST L1 FITS spectra | **yes** |
+| `LR/ HR/ LRD/ HIZ/` | your 4MOST combination (the CSV `filepath`; used as the `alt` overlay / default fallback) | **yes** |
+| `LR4/ HIZ4/ LRD4/ HR4/` | the L1 combination — the **default** trace (matched by coord) | no |
 | `SPV_DESI_match.fits` + `DESI_spectra/*.json` | DESI DR1 overlay & tab | no |
 | `S16_*_target_catalogue.fits.gz` | subsurvey tabs (cached to `.subsurvey_cache.csv`) | no |
 | `LR_xpca.fits`, `LRD_xpca.fits`, `HIZ_xpca.fits`, `HR_xpca.fits` | 4XP redshifts for line markers | no |
-| `LR4/ HIZ4/ LRD4/ HR4/` | alternate-reduction overlay | no |
 | `spectra_tags.csv` | quality tags (created/updated by the viewer) | auto |
 
 The CSV `filepath` column may be absolute or relative to the CSV; unresolved names are

@@ -12,11 +12,14 @@ Features
   • Sky scale      : divide sky flux by 1–10 via slider
   • Navigation     : ◀ Prev / Next ▶ + page-jump text box + ← → keyboard
   • Statistics     : SNR vs mag, redshift histogram, sky map, etc.
-  • Tagging         : per-page=1 shows a quality (good/bad/unclear) + issue +
-                     redshift-override sidebar; Save tags → spectra_tags.csv,
-                     reloaded at startup
+  • Tagging         : per-page=1 shows a quality (ok/unclear/bad minor/bad major)
+                     + issue + redshift-override sidebar; Save tags →
+                     spectra_tags.csv, reloaded at startup
+  • Reductions     : default trace = the L1 combination (LR4/HIZ4/… dirs, else
+                     the CSV LR spectrum); "alt" overlay = my combination (LR)
   • DESI overlay   : matched DESI DR1 spectrum (pink) via SPV_DESI_match.fits
   • Spectral theme : gray=raw  blue=smooth  green=sky  red=err  pink=DESI
+                     orange=alt (my LR combination)
 
 Keyboard shortcuts
 ------------------
@@ -138,12 +141,16 @@ C_SMOOTH = "#5599ff"   # blue             – smoothed spectrum
 C_SKY    = "#44cc55"   # green            – sky (offset below zero)
 C_ERR    = "#ff5555"   # red              – error spectrum
 C_DESI   = "#ff66cc"   # pink             – DESI DR1 overlay
-C_ALT    = "#ff9800"   # orange           – alternate 4MOST reduction (LR4/…)
+C_ALT    = "#ff9800"   # orange           – "alt" overlay = my combination (LR/…)
 C_EM     = "#00e5ff"   # cyan             – emission-line markers
 C_ABS    = "#ffd54f"   # amber            – absorption-line markers
 
-# ── Alternate-reduction overlay (dirs <category>4: LR4, HIZ4, LRD4, HR4) ─────
-ALT_SUFFIX = "4"
+# ── Reductions ──────────────────────────────────────────────────────────────
+#   default (main trace) = the L1 combination in <category>4 dirs (LR4/HIZ4/…),
+#     falling back to the CSV filepath when a source has no <category>4 file;
+#   "alt" overlay        = my combination in <category> dirs (LR/HIZ/…, i.e. the
+#     spectra_headers.csv `filepath`).
+L1_SUFFIX = "4"
 
 # ── Rest-frame spectral lines (Å) — major AGN + galaxy features ─────────────
 EM_LINES = [
@@ -364,15 +371,16 @@ def build_desi_index(match_fits=DESI_MATCH_FITS, desi_dir=DESI_DIR):
     return index
 
 
-def build_alt_index(base=BASE, cats=("LR", "HIZ", "LRD", "HR")):
-    """{category: {coord_key: alt_filepath}} for the <category>4 reduction dirs.
+def build_l1_index(base=BASE, cats=("LR", "HIZ", "LRD", "HR")):
+    """{category: {coord_key: path}} for the L1-combination <category>4 dirs.
 
-    The alternate reduction shares each source's coordinate string but has a
-    different SPECUID/date, so it is matched by coord (as with DESI)."""
+    This is the *default* reduction (LR4/HIZ4/…); it shares each source's
+    coordinate string but has a different SPECUID/date, so it is matched by
+    coord (as with DESI)."""
     import glob
     index = {}
     for cat in cats:
-        d = os.path.join(base, cat + ALT_SUFFIX)
+        d = os.path.join(base, cat + L1_SUFFIX)
         if not os.path.isdir(d):
             continue
         cmap = {}
@@ -383,8 +391,8 @@ def build_alt_index(base=BASE, cats=("LR", "HIZ", "LRD", "HR")):
         if cmap:
             index[cat] = cmap
     if index:
-        print("  alt reduction: " +
-              ", ".join(f"{c}{ALT_SUFFIX}={len(m)}" for c, m in index.items()))
+        print("  L1 combination (default): " +
+              ", ".join(f"{c}{L1_SUFFIX}={len(m)}" for c, m in index.items()))
     return index
 
 
@@ -651,7 +659,7 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
         ax.plot(w_all, fs_all,
                 color=C_SMOOTH, alpha=0.92, linewidth=0.9, zorder=4)
 
-    # Alternate 4MOST reduction overlay (orange, smoothed with the same kernel)
+    # "alt" overlay = my combination (LR), orange, smoothed with the same kernel
     if show_alt and alt_wave is not None and alt_flux is not None:
         amask = np.isfinite(alt_flux) & (np.abs(alt_flux) < 1e12)
         if amask.sum() >= 5:
@@ -659,7 +667,7 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
             afs[amask] = gaussian_smooth(alt_flux[amask], sigma)
             ax.plot(alt_wave, afs,
                     color=C_ALT, alpha=0.9, linewidth=0.9, zorder=5,
-                    label="alt reduction")
+                    label="alt: LR (mine)")
             ax.text(0.985, 0.90, "alt ✓", transform=ax.transAxes,
                     ha="right", va="top", fontsize=6, color=C_ALT, zorder=8)
 
@@ -963,7 +971,7 @@ def draw_stats_page(fig, df):
 # ── viewer state ───────────────────────────────────────────────────────────
 
 class ViewerState:
-    def __init__(self, df, desi_index=None, alt_index=None):
+    def __init__(self, df, desi_index=None, l1_index=None):
         self.df         = df
         self.views      = self._build_views(df)   # list of (key, label, color, mask)
         self.view       = 0                        # index into self.views
@@ -983,8 +991,7 @@ class ViewerState:
         self._cache     = {}     # filepath → (wave, flux, err, sky)
         self.desi_index = desi_index or {}   # coord_key → DESI json path
         self._desi_cache = {}    # json path → (wave, flux)
-        self.alt_index  = alt_index or {}    # {category: {coord_key: alt path}}
-        self._alt_cache = {}     # alt path → (wave, flux)
+        self.l1_index   = l1_index or {}     # {category: {coord_key: LR4 path}}
         self.tags       = load_tags()        # filename → {quality, issues, z}
         self.tags_dirty = False
         self.use_custom_z = False            # single-mode redshift override
@@ -1073,17 +1080,22 @@ class ViewerState:
             self._desi_cache[path] = read_desi_spectrum(path)
         return self._desi_cache[path]
 
-    def get_alt(self, category, filename):
-        """Return (wave, flux) of the alternate-reduction spectrum, or (None, None)."""
-        path = self.alt_index.get(category, {}).get(_coord_key(filename))
-        if not path:
-            return None, None
-        if path not in self._alt_cache:
-            if len(self._alt_cache) > 80:
-                self._alt_cache.pop(next(iter(self._alt_cache)))
-            w, f, _e, _s = read_spectrum(path)
-            self._alt_cache[path] = (w, f)
-        return self._alt_cache[path]
+    def l1_path(self, category, filename):
+        """Path to the L1-combination (default, LR4/…) file, or None."""
+        return self.l1_index.get(category, {}).get(_coord_key(filename))
+
+    def get_default(self, category, filename, fp):
+        """(wave, flux, err, sky, is_l1) for the default trace: the L1
+        combination (LR4/…) if present, else the CSV `filepath` (LR/…)."""
+        p = self.l1_path(category, filename)
+        if p:
+            return (*self._get_raw(p), True)
+        return (*self._get_raw(fp), False)
+
+    def get_overlay(self, fp):
+        """(wave, flux) of the 'alt' overlay = my combination (LR CSV filepath)."""
+        w, f, _e, _s = self._get_raw(fp)
+        return w, f
 
 
 # ── grid layout helper ─────────────────────────────────────────────────────
@@ -1102,9 +1114,9 @@ def _grid_dims(n):
 # ── main viewer ────────────────────────────────────────────────────────────
 
 class FourMostViewer:
-    def __init__(self, df, desi_index=None, alt_index=None):
+    def __init__(self, df, desi_index=None, l1_index=None):
         self.state     = ViewerState(df, desi_index=desi_index,
-                                     alt_index=alt_index)
+                                     l1_index=l1_index)
         self.fig       = plt.figure(figsize=(16, 10))
         self.fig.patch.set_facecolor("#1a1a2e")
         self._install_resize_bug_guard()
@@ -1433,11 +1445,15 @@ class FourMostViewer:
             if i >= n:
                 continue
             row = rows.iloc[i]
-            fp = str(row.get("filepath", ""))
-            w, f, e, sky = st.get_spectrum(fp)
-            dw, df_ = st.get_desi(row.get("filename", ""))
-            aw, af_ = st.get_alt(str(row.get("category", "")),
-                                 row.get("filename", ""))
+            fp  = str(row.get("filepath", ""))
+            cat = str(row.get("category", ""))
+            fn  = row.get("filename", "")
+            # default trace = L1 combination (LR4), falling back to LR
+            w, f, e, sky, is_l1 = st.get_default(cat, fn, fp)
+            dw, df_ = st.get_desi(fn)
+            # "alt" overlay = my combination (LR); only shown when the default
+            # is actually the L1 spectrum (otherwise LR *is* the default)
+            aw, af_ = st.get_overlay(fp) if is_l1 else (None, None)
             # redshift override applies only in single-spectrum mode
             z_over = None
             if self._single and st.use_custom_z:
@@ -1812,7 +1828,7 @@ def main():
     df["has_desi"] = df["filename"].apply(_coord_key).map(
         lambda k: k in desi_index)
 
-    alt_index = build_alt_index()
+    l1_index = build_l1_index()
 
     ss = assign_subsurvey(df)
     if ss is not None:
@@ -1830,7 +1846,7 @@ def main():
     print("  Per page = 1  →  quality/issue tagging sidebar (Save tags to disk)")
     print()
 
-    viewer = FourMostViewer(df, desi_index=desi_index, alt_index=alt_index)
+    viewer = FourMostViewer(df, desi_index=desi_index, l1_index=l1_index)
     viewer.show()
 
 
