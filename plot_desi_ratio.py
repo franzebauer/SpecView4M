@@ -30,7 +30,8 @@ import pandas as pd
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
 from viewer import (read_spectrum, read_desi_spectrum, build_desi_index,
-                    build_l1_index, _coord_key, CSV_DEFAULT)
+                    build_l1_index, _coord_key, read_index, default_index,
+                    CSV_DEFAULT)
 
 import matplotlib
 matplotlib.use("Agg")
@@ -115,7 +116,7 @@ def compute_ratios(csv_path, recon="l1"):
     recon='l1' (default) uses the L1 combination in LR4/ (matched by coord);
     recon='alt' uses my combination in LR/ (the CSV filepath). Same LR∩DESI
     source sample either way."""
-    df = pd.read_csv(csv_path, low_memory=False)
+    df = read_index(csv_path)
     csv_dir = os.path.dirname(os.path.abspath(csv_path))
     desi_index = build_desi_index()
     l1_lr = build_l1_index().get("LR", {}) if recon == "l1" else {}
@@ -179,7 +180,7 @@ def load_or_compute(csv_path, recompute, recon="l1"):
 
 def build_meta(filenames, csv_path):
     """Per-spectrum SNR_R, rmag (CAT_MAG), seeing (DIMM FWHM_AMBI)."""
-    df = pd.read_csv(csv_path, low_memory=False)
+    df = read_index(csv_path)
     df = df.drop_duplicates("filename").set_index("filename")
     meta = pd.DataFrame(index=pd.Index(filenames, name="filename"))
     meta["SNR_R"] = pd.to_numeric(df.reindex(filenames)["SNR_R"].values,
@@ -296,7 +297,7 @@ def plot_binned(ratios, values, bins, split_label, out, base_mask=None,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("csv", nargs="?", default=CSV_DEFAULT)
+    ap.add_argument("csv", nargs="?", default=default_index())
     ap.add_argument("--split", choices=list(SPLITS), default="rmag")
     ap.add_argument("--recon", choices=["l1", "alt"], default="l1",
                     help="4MOST reduction: l1 = L1 combination LR4/ (default), "

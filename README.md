@@ -92,7 +92,9 @@ it is safe to re-run.
 python viewer.py [spectra_headers.csv]
 ```
 
-If no CSV is given it looks for `spectra_headers.csv` next to `viewer.py`.
+If no path is given it auto-detects `spectra_headers.csv` or `SPV_objects.fits`
+next to `viewer.py`. The index may be a CSV **or** a FITS table (same columns);
+`install.sh` fetches the compact `SPV_objects.fits`.
 
 **Data location.** All auxiliary data — the spectra, the L1 combination (`LR4/…`),
 the DESI assets, the S16 catalogue, and the `*_xpca.fits` files — is resolved
@@ -172,7 +174,7 @@ the spectra).
 
 | path | purpose | required |
 |------|---------|----------|
-| `spectra_headers.csv` | one row per spectrum: `filepath`, `filename`, `category` (LR/HR/LRD/HIZ), `RA`, `DEC`, SNR/mag columns, … | **yes** |
+| `spectra_headers.csv` or `SPV_objects.fits` | index: one row per spectrum (`filepath`, `filename`, `category`, `RA`, `DEC`, SNR/mag, …). CSV or FITS. | **yes** |
 | `LR/ HR/ LRD/ HIZ/` | your 4MOST combination (the CSV `filepath`; used as the `alt` overlay / default fallback) | **yes** |
 | `LR4/ HIZ4/ LRD4/ HR4/` | the L1 combination — the **default** trace (matched by coord) | no |
 | `SPV_DESI_match.fits` + `DESI_spectra/*.json` | DESI DR1 overlay & tab | no |
