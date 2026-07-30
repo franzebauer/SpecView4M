@@ -15,9 +15,9 @@ Features
   • Tagging         : per-page=1 shows a quality (ok/unclear/bad minor/bad major)
                      + issue + redshift-override sidebar; Save tags →
                      spectra_tags.csv, reloaded at startup
-  • Reductions     : default (blue) = the L1 combination (LR4/HIZ4/… dirs; the
-                     panel is blank where no …4 file exists); "alt" overlay
-                     (orange) = my combination (LR)
+  • Reductions     : each of L1 (blue, from LR4/HIZ4/…), my combination (orange,
+                     from LR/…) and DESI (pink) is drawn only if it exists — no
+                     fallback of one into another's colour
   • DESI overlay   : matched DESI DR1 spectrum (pink) via SPV_DESI_match.fits
   • Spectral theme : gray=raw  blue=smooth  green=sky  red=err  pink=DESI
                      orange=alt (my LR combination)
@@ -148,9 +148,9 @@ C_ABS    = "#ffd54f"   # amber            – absorption-line markers
 
 # ── Reductions ──────────────────────────────────────────────────────────────
 #   default (blue trace) = the L1 combination in <category>4 dirs (LR4/HIZ4/…);
-#     the panel is blank ("No LR4 spectrum") where a source has no <category>4 file;
-#   "alt" overlay        = my combination in <category> dirs (LR/HIZ/…, i.e. the
-#     spectra_headers.csv `filepath`), drawn in orange when the L1 default exists.
+#   "alt" overlay (orange) = my combination in <category> dirs (LR/HIZ/…, the
+#     spectra_headers.csv `filepath`); DESI = pink. Each is drawn only if it
+#     exists — a missing L1 does not fall back to the LR spectrum in blue.
 L1_SUFFIX = "4"
 
 # ── Rest-frame spectral lines (Å) — major AGN + galaxy features ─────────────
@@ -552,6 +552,143 @@ def _style_ax(ax):
     ax.title.set_color("white")
 
 
+def _decorate(ax, row, cat_color, xlo, xhi, show_lines, z_override,
+              title_fontsize):
+    """Shared per-panel decorations: axis labels, LRS splice lines, photometric
+    markers, redshifted line markers, and the title. Assumes xlim/ylim set."""
+    ax.set_xlabel("λ (Å)", fontsize=7)
+    ax.set_ylabel("Flux", fontsize=7)
+
+    cat = str(row.get("category", ""))
+    if cat in LRS_CATS:
+        for wsp in LRS_SPLICE_WAVES:
+            if xlo < wsp < xhi:
+                ax.axvline(wsp, color="#ffffff", lw=1.8, ls="--", alpha=0.55)
+
+    _C_AA_S = 2.998e18
+
+    def _ab_to_flam(mag_ab, wave_aa):
+        f_nu = 10.0 ** (-0.4 * (mag_ab + 48.6))
+        return f_nu * _C_AA_S / wave_aa ** 2
+
+    _phot_points = []
+    for _col_mag, _col_id, _label in [
+        ("CAL_MAG_BLUE",  "CAL_MAG_ID_BLUE",  "B"),
+        ("CAL_MAG_GREEN", "CAL_MAG_ID_GREEN",  "G"),
+        ("CAL_MAG_RED",   "CAL_MAG_ID_RED",    "R"),
+    ]:
+        _mag = row.get(_col_mag)
+        _id  = str(row.get(_col_id) or "").strip()
+        try:
+            _mag = float(_mag)
+        except (TypeError, ValueError):
+            _mag = np.nan
+        if np.isfinite(_mag) and _mag > 0 and _id:
+            _wv = _filter_wave(_id)
+            if _wv is not None:
+                _phot_points.append((_wv, _ab_to_flam(_mag, _wv),
+                                     f"{_label}={_mag:.1f}"))
+
+    if not _phot_points:
+        _mag_main = row.get("CAT_MAG")
+        _mtype    = str(row.get("CAT_MAG_TYPE") or "").strip()
+        try:
+            _mag_main = float(_mag_main)
+        except (TypeError, ValueError):
+            _mag_main = np.nan
+        if np.isfinite(_mag_main) and _mag_main > 0 and _mtype:
+            _wv = _filter_wave(_mtype)
+            if _wv is not None:
+                _short = (_mtype.replace("_AB", "").replace("_Vega", "")
+                          .replace("_PSF", ""))
+                _phot_points.append((_wv, _ab_to_flam(_mag_main, _wv),
+                                     f"{_short}={_mag_main:.1f}"))
+
+    _ymin, _ymax = ax.get_ylim()
+    _wspan = xhi - xlo
+    _phot_in_range = [(wv, fl, lb) for (wv, fl, lb) in _phot_points
+                      if xlo <= wv <= xhi]
+    if _phot_in_range:
+        _flam_min = min(fl for _, fl, _ in _phot_in_range)
+        _flam_max = max(fl for _, fl, _ in _phot_in_range)
+        _new_ymin = min(_ymin, _flam_min * 0.7)
+        _new_ymax = max(_ymax, _flam_max * 1.4)
+        if _new_ymin != _ymin or _new_ymax != _ymax:
+            ax.set_ylim(_new_ymin, _new_ymax)
+
+    for _wv, _fl, _lbl in _phot_in_range:
+        _mc = _arm_color_for_wave(_wv)
+        ax.plot(_wv, _fl, marker="D", ms=5, color=_mc,
+                mec="white", mew=0.5, zorder=6, alpha=0.9)
+        ax.text(_wv + _wspan * 0.015, _fl, _lbl,
+                color=_mc, fontsize=6, va="center", ha="left",
+                zorder=7, alpha=0.9)
+
+    if show_lines:
+        zval = z_override if z_override is not None else row.get("XPCA_Z")
+        draw_line_markers(ax, zval, xlo, xhi)
+
+    _set_title(ax, row, cat_color, title_fontsize)
+
+
+def _valid_trace(w, f):
+    return (w is not None and f is not None
+            and int((np.isfinite(f) & (np.abs(f) < 1e12)).sum()) >= 5)
+
+
+def _draw_overlays_only(ax, row, sigma, cat_color,
+                        alt_wave, alt_flux, show_alt,
+                        desi_wave, desi_flux, show_desi, desi_sigma,
+                        show_lines, z_override, title_fontsize, empty_msg):
+    """When there is no usable L1 (blue) default, still draw whichever of the
+    LR (orange) and DESI (pink) traces exist. Placeholder only if none do."""
+    _ds = sigma if desi_sigma is None else desi_sigma
+    traces = [  # (wave, flux, sigma, color, label, show)
+        (alt_wave,  alt_flux,  sigma, C_ALT,  "alt: LR (mine)", show_alt),
+        (desi_wave, desi_flux, _ds,   C_DESI, "DESI DR1",       show_desi),
+    ]
+    present = [t for t in traces if _valid_trace(t[0], t[1])]
+    if not present:
+        ax.text(0.5, 0.5, empty_msg, ha="center", va="center",
+                transform=ax.transAxes, color="#f44", fontsize=8)
+        ax.set_xticks([]); ax.set_yticks([])
+        _set_title(ax, row, cat_color, title_fontsize)
+        return
+
+    # frame from all present traces (so toggling one off doesn't rescale)
+    ws, fs = [], []
+    for w, f, *_ in present:
+        m = np.isfinite(w) & np.isfinite(f) & (np.abs(f) < 1e12)
+        ws.append(w[m]); fs.append(f[m])
+    allw = np.concatenate(ws); allf = np.concatenate(fs)
+    xlo, xhi = float(np.nanmin(allw)), float(np.nanmax(allw))
+    lo, hi = np.nanpercentile(allf, 2), np.nanpercentile(allf, 98)
+    if lo == hi:
+        lo -= 1; hi += 1
+    pad = (hi - lo) * 0.12
+    ax.set_xlim(xlo, xhi)
+    ax.set_ylim(lo - pad, hi + pad * 2)
+    ax.axhline(0, color="#555555", lw=0.4, alpha=0.6, zorder=0)
+
+    for w, f, sg, col, lab, shw in present:
+        if not shw:
+            continue
+        m = np.isfinite(f) & (np.abs(f) < 1e12)
+        fs_all = np.full_like(f, np.nan)
+        fs_all[m] = gaussian_smooth(f[m], sg)
+        ax.plot(w, fs_all, color=col, lw=0.9, alpha=0.9, zorder=4, label=lab)
+
+    if show_desi and _valid_trace(desi_wave, desi_flux):
+        ax.text(0.985, 0.96, "DESI ✓", transform=ax.transAxes, ha="right",
+                va="top", fontsize=6, color=C_DESI, zorder=8)
+    if show_alt and _valid_trace(alt_wave, alt_flux):
+        ax.text(0.985, 0.90, "alt ✓", transform=ax.transAxes, ha="right",
+                va="top", fontsize=6, color=C_ALT, zorder=8)
+
+    _decorate(ax, row, cat_color, xlo, xhi, show_lines, z_override,
+              title_fontsize)
+
+
 def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
                       sky_scale=1.0,
                       show_raw=True, show_smooth=True,
@@ -573,19 +710,17 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
     ax.cla()
     _style_ax(ax)
 
-    if wave is None:
-        ax.text(0.5, 0.5, empty_msg, ha="center", va="center",
-                transform=ax.transAxes, color="#f44", fontsize=8)
-        ax.set_xticks([]); ax.set_yticks([])
-        _set_title(ax, row, cat_color, title_fontsize)
-        return
-
-    mask = (np.isfinite(flux) & np.isfinite(err)
-            & (err > 0) & (np.abs(flux) < 1e12))
-    if mask.sum() < 5:
-        ax.text(0.5, 0.5, "No valid data", ha="center", va="center",
-                transform=ax.transAxes, fontsize=8, color="#fa0")
-        _set_title(ax, row, cat_color, title_fontsize)
+    # Is the L1 (blue / default) spectrum usable?
+    mask = None
+    if wave is not None:
+        mask = (np.isfinite(flux) & np.isfinite(err)
+                & (err > 0) & (np.abs(flux) < 1e12))
+    if mask is None or mask.sum() < 5:
+        # no usable L1 default → still draw LR (orange) / DESI (pink) if present
+        _draw_overlays_only(ax, row, sigma, cat_color,
+                            alt_wave, alt_flux, show_alt,
+                            desi_wave, desi_flux, show_desi, desi_sigma,
+                            show_lines, z_override, title_fontsize, empty_msg)
         return
 
     # --- valid data ---
@@ -689,83 +824,9 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
 
     ax.set_xlim(xlo, xhi)
     ax.set_ylim(ymin, ymax)
-    ax.set_xlabel("λ (Å)", fontsize=7)
-    ax.set_ylabel("Flux", fontsize=7)
 
-    # ── LRS arm splice markers ─────────────────────────────────────────
-    cat = str(row.get("category", ""))
-    if cat in LRS_CATS:
-        for wsp in LRS_SPLICE_WAVES:
-            if xlo < wsp < xhi:
-                ax.axvline(wsp, color="#ffffff", lw=1.8, ls="--", alpha=0.55)
-
-    # ── Photometric magnitude markers ─────────────────────────────────
-    _C_AA_S = 2.998e18
-
-    def _ab_to_flam(mag_ab, wave_aa):
-        f_nu = 10.0 ** (-0.4 * (mag_ab + 48.6))
-        return f_nu * _C_AA_S / wave_aa ** 2
-
-    _phot_points = []
-    for _col_mag, _col_id, _label in [
-        ("CAL_MAG_BLUE",  "CAL_MAG_ID_BLUE",  "B"),
-        ("CAL_MAG_GREEN", "CAL_MAG_ID_GREEN",  "G"),
-        ("CAL_MAG_RED",   "CAL_MAG_ID_RED",    "R"),
-    ]:
-        _mag = row.get(_col_mag)
-        _id  = str(row.get(_col_id) or "").strip()
-        try:
-            _mag = float(_mag)
-        except (TypeError, ValueError):
-            _mag = np.nan
-        if np.isfinite(_mag) and _mag > 0 and _id:
-            _wv = _filter_wave(_id)
-            if _wv is not None:
-                _phot_points.append((_wv, _ab_to_flam(_mag, _wv),
-                                     f"{_label}={_mag:.1f}"))
-
-    if not _phot_points:
-        _mag_main = row.get("CAT_MAG")
-        _mtype    = str(row.get("CAT_MAG_TYPE") or "").strip()
-        try:
-            _mag_main = float(_mag_main)
-        except (TypeError, ValueError):
-            _mag_main = np.nan
-        if np.isfinite(_mag_main) and _mag_main > 0 and _mtype:
-            _wv = _filter_wave(_mtype)
-            if _wv is not None:
-                _short = (_mtype.replace("_AB", "").replace("_Vega", "")
-                          .replace("_PSF", ""))
-                _phot_points.append((_wv, _ab_to_flam(_mag_main, _wv),
-                                     f"{_short}={_mag_main:.1f}"))
-
-    _ymin, _ymax = ax.get_ylim()
-    _wspan = xhi - xlo
-    _phot_in_range = [(wv, fl, lb) for (wv, fl, lb) in _phot_points
-                      if xlo <= wv <= xhi]
-    if _phot_in_range:
-        _flam_min = min(fl for _, fl, _ in _phot_in_range)
-        _flam_max = max(fl for _, fl, _ in _phot_in_range)
-        _new_ymin = min(_ymin, _flam_min * 0.7)
-        _new_ymax = max(_ymax, _flam_max * 1.4)
-        if _new_ymin != _ymin or _new_ymax != _ymax:
-            ax.set_ylim(_new_ymin, _new_ymax)
-            _ymin, _ymax = _new_ymin, _new_ymax
-
-    for _wv, _fl, _lbl in _phot_in_range:
-        _mc = _arm_color_for_wave(_wv)
-        ax.plot(_wv, _fl, marker="D", ms=5, color=_mc,
-                mec="white", mew=0.5, zorder=6, alpha=0.9)
-        ax.text(_wv + _wspan * 0.015, _fl, _lbl,
-                color=_mc, fontsize=6, va="center", ha="left",
-                zorder=7, alpha=0.9)
-
-    # ── redshifted spectral-line markers ─────────────────────────────────
-    if show_lines:
-        zval = z_override if z_override is not None else row.get("XPCA_Z")
-        draw_line_markers(ax, zval, xlo, xhi)
-
-    _set_title(ax, row, cat_color, title_fontsize)
+    _decorate(ax, row, cat_color, xlo, xhi, show_lines, z_override,
+              title_fontsize)
 
 
 def draw_line_markers(ax, z, xlo, xhi):
@@ -1454,9 +1515,10 @@ class FourMostViewer:
             # default (blue) trace = L1 combination (LR4); nothing if absent
             w, f, e, sky, is_l1 = st.get_default(cat, fn, fp)
             dw, df_ = st.get_desi(fn)
-            # "alt" overlay (orange) = my combination (LR)
-            aw, af_ = st.get_overlay(fp) if is_l1 else (None, None)
-            empty_msg = "No LR4 spectrum" if not is_l1 else "Read error"
+            # "alt" overlay (orange) = my combination (LR); always attempted so
+            # it still shows when there is no L1 default
+            aw, af_ = st.get_overlay(fp)
+            empty_msg = "No spectrum"
             # redshift override applies only in single-spectrum mode
             z_over = None
             if self._single and st.use_custom_z:

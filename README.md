@@ -31,7 +31,7 @@ absorption lines at the source redshift, and tag each spectrum's quality to disk
 
 **Overlays**
 - **DESI DR1** overlay (pink), matched by coordinate string via `SPV_DESI_match.fits` → `DESI_spectra/targetid_<id>.json`.
-- **Two reductions:** the default (blue) trace is the **L1 combination** in the parallel `LR4/ HIZ4/ LRD4/ HR4` directories (matched by coordinate). Blue always means L1 — where a source has no `…4` file the panel is blank (`No LR4 spectrum`). The **`alt`** overlay (orange) is your own combination — the `LR/` spectrum from the CSV.
+- **Two reductions + DESI, each drawn only if present:** **blue** = the **L1 combination** in the parallel `LR4/ HIZ4/ LRD4/ HR4` directories (matched by coordinate); **orange** = your own combination (the `LR/` spectrum from the CSV, `alt` toggle); **pink** = DESI. Fixed colours with no fallback — a missing L1 does not draw the LR in blue; you simply see whichever of the three exist.
 - **Redshifted line markers** — major AGN/galaxy emission (cyan) and stellar absorption (amber) lines drawn at their observed wavelength `rest·(1+z)` using the 4XP (`*_xpca.fits`) redshift, with a per-spectrum **custom-z override** (toggle + 0–6.5 slider + text box).
 
 **Quality tagging** (shown when *per page = 1*)
