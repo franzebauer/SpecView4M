@@ -10,6 +10,8 @@ __pycache__/
 # Viewer caches / generated artifacts
 .subsurvey_cache.csv
 preview_*.png
+PLOTS/
+*.npz
 
 # Data (not distributed with the repo)
 *.fits
@@ -25,3 +27,4 @@ HIZ4/
 LRD4/
 HR4/
 spectra_headers.csv
+conditions.csv

@@ -90,6 +90,52 @@ If no CSV is given it looks for `spectra_headers.csv` next to `viewer.py`.
 
 ---
 
+## 4MOST ↔ DESI comparison (`plot_desi_ratio.py`)
+
+A companion script that quantifies how the 4MOST spectrophotometry compares to
+**DESI DR1** across wavelength. For every LR spectrum with a DESI match it regrids
+both spectra to a common 1 Å grid, smooths each on a 10 Å scale, forms the ratio
+**4MOST / DESI**, and shows the wavelength-resolved **median** and the **14/86, 5/95,
+1/99 percentile** envelopes (log y-axis).
+
+```bash
+python plot_desi_ratio.py [spectra_headers.csv] [options]
+```
+
+| option | effect |
+|--------|--------|
+| `--split none` | single overall panel (default is `rmag`) |
+| `--split snr` | one panel per `SNR_R` bin (0-1, 1-2, 2-4, 4-8, >8) |
+| `--split rmag` | one panel per `CAT_MAG` bin (17-18 … 21-22) |
+| `--normalize` | divide each ratio by its value at the norm wavelength first — isolates the *spectral shape* from the per-object flux offset |
+| `--norm-wave X` | normalisation wavelength in Å (default 5500) |
+| `--recon alt` | use the alternate reduction (`LR4/`, matched by coord) as the 4MOST side |
+| `--seeing-max X` | keep only spectra with DIMM seeing (`FWHM_AMBI` from `conditions.csv`) below X″ |
+| `--recompute` | rebuild the per-spectrum ratio cache from the spectra |
+
+Examples:
+
+```bash
+# overall shape comparison, normalised at 5500 Å
+python plot_desi_ratio.py --split none --normalize
+
+# by magnitude, restricted to good seeing
+python plot_desi_ratio.py --split rmag --seeing-max 1.0
+
+# by SNR, using the alternate reduction
+python plot_desi_ratio.py --split snr --recon alt
+```
+
+The per-spectrum ratios are cached to `PLOTS/desi_ratio_cache[_alt].npz`, so re-plots
+with different splits/normalisation are instant; only `--recompute` (or changed input
+spectra) re-reads the FITS/JSON. Figures are written to `PLOTS/desi_ratio_*.png`.
+
+Needs the DESI assets (`SPV_DESI_match.fits`, `DESI_spectra/`) and — for the seeing
+cut — `conditions.csv`. It imports the readers from `viewer.py`, so keep the two
+scripts together.
+
+---
+
 ## Expected data layout
 
 `viewer.py` reads a header CSV plus the underlying FITS files. Optional assets unlock
