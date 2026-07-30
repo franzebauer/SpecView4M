@@ -69,6 +69,21 @@ mamba activate specview
 `astropy` is only needed for the subsurvey tabs, xpca redshifts, and DESI-match
 reading; the core viewer runs without it.
 
+### Get the data
+
+`install.sh` downloads the spectra, DESI data and catalogues from Google Drive
+(via `gdown`) and unpacks them next to `viewer.py`:
+
+```bash
+./install.sh          # default: spectra index + L1 combination (LR4, HIZ4) + DESI
+./install.sh --full   # also the LR overlay, subsurvey catalogue, xpca, conditions.csv
+```
+
+The default download is enough to browse spectra with the DESI overlay; `--full`
+adds everything needed for the subsurvey tabs, redshift line markers, and the
+`plot_desi_ratio.py` seeing cut. Already-present files/directories are skipped, so
+it is safe to re-run.
+
 ---
 
 ## Usage

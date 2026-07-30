@@ -1908,7 +1908,7 @@ def main():
     l1_index = build_l1_index(base=data_dir)
 
     _s16 = sorted(_glob.glob(os.path.join(data_dir,
-                                          "S16_*target_catalogue*.fits*")))
+                                          "*target_catalogue*.fits*")))
     ss = assign_subsurvey(df,
                           cat_path=_s16[0] if _s16 else S16_CAT,
                           cache_path=os.path.join(data_dir,
