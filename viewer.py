@@ -450,7 +450,7 @@ def assign_subsurvey(df, cat_path=S16_CAT, cache_path=SUBSURVEY_CACHE):
     return out
 
 
-def load_xpca_redshifts(files=XPCA_FILES):
+def load_xpca_redshifts(files=XPCA_FILES, base=BASE):
     """Return a DataFrame indexed by filename with 4XP redshift estimates
     (XPCA_Z, XPCA_ZPROB, XPCA_ZTYPE), joined by PROV == L1 filename."""
     try:
@@ -460,7 +460,7 @@ def load_xpca_redshifts(files=XPCA_FILES):
     prov, z, zp, zt = [], [], [], []
     found = False
     for f in files:
-        path = f if os.path.isabs(f) else os.path.join(BASE, f)
+        path = f if os.path.isabs(f) else os.path.join(base, f)
         if not os.path.exists(path):
             continue
         found = True
@@ -1824,17 +1824,30 @@ def main():
     print(f"  {len(df):,} spectra  |  categories: {cats}")
     print(f"  {n_match:,} catalogue matches  |  {n_z:,} redshifts measured")
 
-    desi_index = build_desi_index()
+    # Auxiliary data (DESI, L1 combination, S16 catalogue, xpca) is resolved
+    # relative to the CSV's directory, so a copy of viewer.py elsewhere still
+    # finds it when pointed at the data CSV. Defaults to BASE when identical.
+    import glob as _glob
+    data_dir = csv_dir
+
+    desi_index = build_desi_index(
+        match_fits=os.path.join(data_dir, "SPV_DESI_match.fits"),
+        desi_dir=os.path.join(data_dir, "DESI_spectra"))
     df["has_desi"] = df["filename"].apply(_coord_key).map(
         lambda k: k in desi_index)
 
-    l1_index = build_l1_index()
+    l1_index = build_l1_index(base=data_dir)
 
-    ss = assign_subsurvey(df)
+    _s16 = sorted(_glob.glob(os.path.join(data_dir,
+                                          "S16_*target_catalogue*.fits*")))
+    ss = assign_subsurvey(df,
+                          cat_path=_s16[0] if _s16 else S16_CAT,
+                          cache_path=os.path.join(data_dir,
+                                                  ".subsurvey_cache.csv"))
     if ss is not None:
         df["subsurvey"] = ss
 
-    xpca = load_xpca_redshifts()
+    xpca = load_xpca_redshifts(base=data_dir)
     if xpca is not None:
         df = df.join(xpca, on="filename")
 

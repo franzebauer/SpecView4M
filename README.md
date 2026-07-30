@@ -79,6 +79,19 @@ python viewer.py [spectra_headers.csv]
 
 If no CSV is given it looks for `spectra_headers.csv` next to `viewer.py`.
 
+**Data location.** All auxiliary data — the spectra, the L1 combination (`LR4/…`),
+the DESI assets, the S16 catalogue, and the `*_xpca.fits` files — is resolved
+**relative to the directory of the CSV you pass**. So you can keep `viewer.py`
+anywhere and point it at your data directory:
+
+```bash
+python /path/to/SpecView4M/viewer.py /path/to/data/spectra_headers.csv
+```
+
+Whichever assets are present in that directory light up the corresponding tabs and
+overlays (subsurvey tabs, DESI tab/overlay, line markers, L1-vs-alt); anything
+missing simply doesn't appear.
+
 ### Keyboard shortcuts
 | key | action |
 |-----|--------|
