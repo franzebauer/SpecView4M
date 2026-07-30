@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Viewer caches / generated artifacts
+.subsurvey_cache.csv
+preview_*.png
+
+# Data (not distributed with the repo)
+*.fits
+*.fits.fz
+*.fits.gz
+DESI_spectra/
+LR/
+HR/
+LRD/
+HIZ/
+LR4/
+HIZ4/
+LRD4/
+HR4/
+spectra_headers.csv
