@@ -219,27 +219,15 @@ XPCA_FILES = ["LR_xpca.fits", "LRD_xpca.fits", "HIZ_xpca.fits", "HR_xpca.fits"]
 S16_CAT                = os.path.join(BASE, "S16_20250429T0456Z_target_catalogue.fits.gz")
 SUBSURVEY_CACHE        = os.path.join(BASE, ".subsurvey_cache.csv")
 SUBSURVEY_MATCH_ARCSEC = 1.0
-# Nice short labels/colours for known catalogue SUBSURVEY values. Any other
-# values found in the catalogue still get a tab (dynamically, see _build_views).
-SUBSURVEY_LABELS = {
-    "M_SED": "M_SED", "W_SED": "W_SED", "W_VARL": "VAR_L",
-    "W_VARZ": "VAR_Z", "W_VARG": "VAR_G", "W_HIZ": "W_HIZ",
-}
+# catalogue SUBSURVEY value → viewer tab label, in display order
+SUBSURVEY_VIEWS = [
+    ("M_SED", "M_SED"), ("W_SED", "W_SED"), ("W_VARZ", "VAR_Z"),
+    ("W_VARG", "VAR_G"), ("W_VARL", "VAR_L"),
+]
 SUBSURVEY_COLORS = {
     "M_SED": "#9C27B0", "W_SED": "#00BCD4", "W_VARL": "#8BC34A",
     "W_VARZ": "#FFC107", "W_VARG": "#FF5722", "W_HIZ": "#795548",
 }
-SUBSURVEY_PALETTE = ["#9C27B0", "#00BCD4", "#8BC34A", "#FFC107", "#FF5722",
-                     "#795548", "#607D8B", "#E91E63", "#3F51B5", "#009688"]
-MAX_SUBSURVEY_TABS = 8
-
-
-def _subsurvey_label(ss):
-    """Short tab label for a catalogue SUBSURVEY value."""
-    if ss in SUBSURVEY_LABELS:
-        return SUBSURVEY_LABELS[ss]
-    s = str(ss).replace("SVX1601_", "").replace("_fill", "")
-    return s[:12]
 
 # ── FITS spectrum reader ───────────────────────────────────────────────────
 
@@ -1124,22 +1112,10 @@ class ViewerState:
             if m.any():
                 views.append((cat, cat, CAT_COLORS.get(cat, "#555"), m))
         if "subsurvey" in df.columns:
-            # one tab per populated SUBSURVEY value found in the catalogue
-            # (dynamic, so it adapts to whatever target catalogue is loaded)
-            vc = df["subsurvey"].value_counts()
-            n = 0
-            for ss in vc.index:
-                s = str(ss)
-                if not s or s in ("NONE", "nan"):
-                    continue
+            for ss, label in SUBSURVEY_VIEWS:
                 m = (df["subsurvey"] == ss)
-                if not m.any():
-                    continue
-                color = SUBSURVEY_COLORS.get(s, SUBSURVEY_PALETTE[n % len(SUBSURVEY_PALETTE)])
-                views.append((s, _subsurvey_label(s), color, m))
-                n += 1
-                if n >= MAX_SUBSURVEY_TABS:
-                    break
+                if m.any():
+                    views.append((ss, label, SUBSURVEY_COLORS.get(ss, "#607D8B"), m))
         if "has_desi" in df.columns:
             m = df["has_desi"].astype(bool)
             if m.any():
@@ -1952,8 +1928,10 @@ def main():
 
     l1_index = build_l1_index(base=data_dir)
 
-    _s16 = sorted(_glob.glob(os.path.join(data_dir,
-                                          "*target_catalogue*.fits*")))
+    # prefer the S16/SEP catalogue (M_SED/W_SED/VAR_* subsurveys); fall back to
+    # any other *target_catalogue* only if no S16 one is present
+    _s16 = (sorted(_glob.glob(os.path.join(data_dir, "S16_*target_catalogue*.fits*")))
+            or sorted(_glob.glob(os.path.join(data_dir, "*target_catalogue*.fits*"))))
     ss = assign_subsurvey(df,
                           cat_path=_s16[0] if _s16 else S16_CAT,
                           cache_path=os.path.join(data_dir,

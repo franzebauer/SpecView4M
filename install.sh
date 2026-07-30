@@ -57,8 +57,12 @@ if [ "$FULL" -eq 1 ]; then
   fetch     1O8kDRbDxml3MQgagfp5PCYg5PqJrdccb LR_xpca.fits
   fetch     1zD9i3hA1N4EozdKv0voGLY106Qyt7QcM HIZ_xpca.fits
   fetch     1ffwPkrFQEfop36Sd4rr9NE6YT8BfSuPt LRD_xpca.fits                   # Drive file is "LRD.xpca.fits"
-  fetch     1IEfL9-MtN61dA0BTYccCZGIklRrppYX7 IWG3_XGAL_SPV_20260201T2230Z_target_catalogue.fits
   fetch     1tpWpyeC5Hv7lvOlfVqyFG-0n0USe25q5 conditions.csv                  # seeing cut for plot_desi_ratio.py
+
+  # Subsurvey tabs (M_SED/W_SED/VAR_Z/VAR_G/VAR_L) need the S16/SEP catalogue.
+  # TODO: add its Drive id (S16_*_target_catalogue.fits.gz). The IWG3 catalogue
+  # is NOT used — its SUBSURVEY codes just mirror the arm tabs.
+  # fetch   "<S16_CATALOGUE_ID>" S16_20250429T0456Z_target_catalogue.fits.gz
 fi
 
 echo
