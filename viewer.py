@@ -222,7 +222,7 @@ SUBSURVEY_MATCH_ARCSEC = 1.0
 # catalogue SUBSURVEY value → viewer tab label, in display order
 SUBSURVEY_VIEWS = [
     ("M_SED", "M_SED"), ("W_SED", "W_SED"), ("W_VARZ", "VAR_Z"),
-    ("W_VARG", "VAR_G"), ("W_VARL", "VAR_L"),
+    ("W_VARG", "VAR_G"), ("W_VARL", "VAR_L"), ("W_HIZ", "W_HIZ"),
 ]
 SUBSURVEY_COLORS = {
     "M_SED": "#9C27B0", "W_SED": "#00BCD4", "W_VARL": "#8BC34A",
