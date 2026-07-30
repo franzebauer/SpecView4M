@@ -15,8 +15,9 @@ Features
   • Tagging         : per-page=1 shows a quality (ok/unclear/bad minor/bad major)
                      + issue + redshift-override sidebar; Save tags →
                      spectra_tags.csv, reloaded at startup
-  • Reductions     : default trace = the L1 combination (LR4/HIZ4/… dirs, else
-                     the CSV LR spectrum); "alt" overlay = my combination (LR)
+  • Reductions     : default (blue) = the L1 combination (LR4/HIZ4/… dirs; the
+                     panel is blank where no …4 file exists); "alt" overlay
+                     (orange) = my combination (LR)
   • DESI overlay   : matched DESI DR1 spectrum (pink) via SPV_DESI_match.fits
   • Spectral theme : gray=raw  blue=smooth  green=sky  red=err  pink=DESI
                      orange=alt (my LR combination)
@@ -146,10 +147,10 @@ C_EM     = "#00e5ff"   # cyan             – emission-line markers
 C_ABS    = "#ffd54f"   # amber            – absorption-line markers
 
 # ── Reductions ──────────────────────────────────────────────────────────────
-#   default (main trace) = the L1 combination in <category>4 dirs (LR4/HIZ4/…),
-#     falling back to the CSV filepath when a source has no <category>4 file;
+#   default (blue trace) = the L1 combination in <category>4 dirs (LR4/HIZ4/…);
+#     the panel is blank ("No LR4 spectrum") where a source has no <category>4 file;
 #   "alt" overlay        = my combination in <category> dirs (LR/HIZ/…, i.e. the
-#     spectra_headers.csv `filepath`).
+#     spectra_headers.csv `filepath`), drawn in orange when the L1 default exists.
 L1_SUFFIX = "4"
 
 # ── Rest-frame spectral lines (Å) — major AGN + galaxy features ─────────────
@@ -558,13 +559,14 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
                       desi_wave=None, desi_flux=None, show_desi=True,
                       desi_sigma=None, show_lines=True, z_override=None,
                       alt_wave=None, alt_flux=None, show_alt=True,
-                      title_fontsize=13):
+                      title_fontsize=13, empty_msg="Read error"):
     """
     Plot a single spectrum (or concatenated HR arms) with the colour scheme:
       light gray = raw spectrum
-      blue       = smoothed spectrum
+      blue       = smoothed spectrum (the L1 default)
       green      = sky / sky_scale  (displayed at natural vertical position)
       red        = error spectrum (positive, 1σ)
+      orange     = "alt" overlay = my LR combination
 
     LRS arm splice lines and photometric magnitude markers are overlaid.
     """
@@ -572,7 +574,7 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
     _style_ax(ax)
 
     if wave is None:
-        ax.text(0.5, 0.5, "Read error", ha="center", va="center",
+        ax.text(0.5, 0.5, empty_msg, ha="center", va="center",
                 transform=ax.transAxes, color="#f44", fontsize=8)
         ax.set_xticks([]); ax.set_yticks([])
         _set_title(ax, row, cat_color, title_fontsize)
@@ -1085,12 +1087,13 @@ class ViewerState:
         return self.l1_index.get(category, {}).get(_coord_key(filename))
 
     def get_default(self, category, filename, fp):
-        """(wave, flux, err, sky, is_l1) for the default trace: the L1
-        combination (LR4/…) if present, else the CSV `filepath` (LR/…)."""
+        """(wave, flux, err, sky, is_l1) for the default (blue) trace = the L1
+        combination (LR4/…). Returns all-None when this source has no L1 file,
+        so the panel shows nothing rather than a blue non-L1 spectrum."""
         p = self.l1_path(category, filename)
         if p:
             return (*self._get_raw(p), True)
-        return (*self._get_raw(fp), False)
+        return (None, None, None, None, False)
 
     def get_overlay(self, fp):
         """(wave, flux) of the 'alt' overlay = my combination (LR CSV filepath)."""
@@ -1448,12 +1451,12 @@ class FourMostViewer:
             fp  = str(row.get("filepath", ""))
             cat = str(row.get("category", ""))
             fn  = row.get("filename", "")
-            # default trace = L1 combination (LR4), falling back to LR
+            # default (blue) trace = L1 combination (LR4); nothing if absent
             w, f, e, sky, is_l1 = st.get_default(cat, fn, fp)
             dw, df_ = st.get_desi(fn)
-            # "alt" overlay = my combination (LR); only shown when the default
-            # is actually the L1 spectrum (otherwise LR *is* the default)
+            # "alt" overlay (orange) = my combination (LR)
             aw, af_ = st.get_overlay(fp) if is_l1 else (None, None)
+            empty_msg = "No LR4 spectrum" if not is_l1 else "Read error"
             # redshift override applies only in single-spectrum mode
             z_over = None
             if self._single and st.use_custom_z:
@@ -1471,7 +1474,8 @@ class FourMostViewer:
                               z_override=z_over,
                               alt_wave=aw, alt_flux=af_,
                               show_alt=st.show_alt,
-                              title_fontsize=title_fs)
+                              title_fontsize=title_fs,
+                              empty_msg=empty_msg)
 
         # single-spectrum mode: track current file + sync tag buttons
         if getattr(self, "_single", False):
@@ -1713,9 +1717,12 @@ class FourMostViewer:
                  f"  [{len(tag['issues'])} issue(s)]{zstr}{dirty}"))
 
     def _on_per_page(self, val):
-        self.state.n_per_page = int(val)
-        self.state.page = 0
-        if self.state.tab == "spectra":
+        st = self.state
+        first_idx = st.page * st.n_per_page   # global index of first shown spectrum
+        st.n_per_page = int(val)
+        st.page = first_idx // st.n_per_page  # keep that spectrum on-screen
+        self._sync_page_tb()
+        if st.tab == "spectra":
             self._draw_spectra()
 
     def _show_stats(self, *_):
