@@ -25,9 +25,6 @@ Features
 Keyboard shortcuts
 ------------------
   ← / →       previous / next page
-  1 … 9       switch tab (arm / subsurvey / DESI)
-  0           toggle statistics dashboard
-  s           cycle smoothing (+2 px each press)
   q / Esc     quit
 """
 
@@ -1399,7 +1396,7 @@ class FourMostViewer:
 
         # ── keyboard hint ─────────────────────────────────────────────
         self.fig.text(0.86, 0.044,
-                      "← →  pages   1-9  tab   s  smooth   q  quit",
+                      "← →  pages    q  quit",
                       color="#555", fontsize=6.5, ha="left", va="bottom")
 
         # ── active quality-filter indicator (visible in any mode) ─────
@@ -1819,20 +1816,8 @@ class FourMostViewer:
             self._next()
         elif k in ("left", "p"):
             self._prev()
-        elif k == "s":
-            new_s = (self.state.sigma + 2) % 22
-            self._slider_sigma.set_val(new_s)
         elif k in ("q", "escape"):
             plt.close("all")
-        elif k == "0":
-            if self.state.tab == "stats":
-                self._back_to_spectra()
-            else:
-                self._show_stats()
-        elif k in ("1", "2", "3", "4", "5", "6", "7", "8", "9"):
-            idx = int(k) - 1
-            if idx < len(self.state.views):
-                self._select_view(idx)
 
     def show(self):
         if _interactive:
@@ -1936,9 +1921,8 @@ def main():
 
     print()
     print("Controls:")
-    print("  ← →     navigate pages     1-9      select tab (arm/subsurvey/DESI)")
-    print("  TextBox  type page number  s        cycle smoothing")
-    print("  0        toggle stats      q/Esc    quit")
+    print("  ← →      navigate pages     q/Esc    quit")
+    print("  TextBox  type page number   click tabs / [Stats] / sliders")
     print("  Per page = 1  →  quality/issue tagging sidebar (Save tags to disk)")
     print()
 

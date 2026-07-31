@@ -21,7 +21,7 @@ absorption lines at the source redshift, and tag each spectrum's quality to disk
   - **Resolution arms** — LR / HR / LRD / HIZ
   - **Subsurveys** — M_SED / W_SED / VAR_L / VAR_Z / VAR_G / W_HIZ (assigned by 1″ match to the S16 target catalogue)
   - **DESI** — only spectra with a DESI DR1 match
-- Prev / Next, a page-jump box, and `←/→` + number-key shortcuts.
+- Prev / Next buttons, a page-jump box, and `←/→` keys.
 
 **Display controls**
 - Independent **4MOST** and **DESI** Gaussian-smoothing sliders (σ in pixels).
@@ -31,7 +31,7 @@ absorption lines at the source redshift, and tag each spectrum's quality to disk
 
 **Overlays**
 - **DESI DR1** overlay (pink), matched by coordinate string via `SPV_DESI_match.fits` → `DESI_spectra/targetid_<id>.json`.
-- **Two reductions + DESI, each drawn only if present:** **blue** = the **L1 combination** in the parallel `LR4/ HIZ4/ LRD4/ HR4` directories (matched by coordinate); **orange** = your own combination (the `LR/` spectrum from the CSV, `alt` toggle); **pink** = DESI. Fixed colours with no fallback — a missing L1 does not draw the LR in blue; you simply see whichever of the three exist.
+- **Two reductions + DESI, each drawn only if present:** **blue** = the **L1 combination** in the parallel `LR4/ HIZ4/ LRD4/ HR4` directories (matched by coordinate); **orange** = your own combination (the `LR/` spectrum listed in the index, `alt` toggle); **pink** = DESI. Fixed colours with no fallback — a missing L1 does not draw the LR in blue; you simply see whichever of the three exist.
 - **Redshifted line markers** — major AGN/galaxy emission (cyan) and stellar absorption (amber) lines drawn at their observed wavelength `rest·(1+z)` using the 4XP (`*_xpca.fits`) redshift, with a per-spectrum **custom-z override** (toggle + 0–6.5 slider + text box).
 
 **Quality tagging** (shown when *per page = 1*)
@@ -40,7 +40,7 @@ absorption lines at the source redshift, and tag each spectrum's quality to disk
 - An **"only"** filter per quality to page through just the ok / unclear / bad-minor / bad-major objects within the current tab.
 - Tags (and any custom redshift) are saved to `spectra_tags.csv` and reloaded on startup.
 
-**Statistics dashboard** — SNR vs magnitude, redshift histogram, sky map (`0` key).
+**Statistics dashboard** — SNR vs magnitude, redshift histogram, sky map (`[Stats]` button).
 
 Every overlay/feature **degrades gracefully**: if the DESI assets, S16 catalogue, xpca
 files, or alternate-reduction dirs are missing, the corresponding tab/overlay simply
@@ -89,20 +89,20 @@ it is safe to re-run.
 ## Usage
 
 ```bash
-python viewer.py [spectra_headers.csv]
+python viewer.py [SPV_objects.fits]
 ```
 
-If no path is given it auto-detects `spectra_headers.csv` or `SPV_objects.fits`
-next to `viewer.py`. The index may be a CSV **or** a FITS table (same columns);
-`install.sh` fetches the compact `SPV_objects.fits`.
+If no path is given it auto-detects `SPV_objects.fits` (or a `spectra_headers.csv`)
+next to `viewer.py`. The index may be a **FITS table** (what `install.sh` fetches —
+compact `SPV_objects.fits`) **or** a CSV with the same columns.
 
 **Data location.** All auxiliary data — the spectra, the L1 combination (`LR4/…`),
 the DESI assets, the S16 catalogue, and the `*_xpca.fits` files — is resolved
-**relative to the directory of the CSV you pass**. So you can keep `viewer.py`
+**relative to the directory of the index you pass**. So you can keep `viewer.py`
 anywhere and point it at your data directory:
 
 ```bash
-python /path/to/SpecView4M/viewer.py /path/to/data/spectra_headers.csv
+python /path/to/SpecView4M/viewer.py /path/to/data/SPV_objects.fits
 ```
 
 Whichever assets are present in that directory light up the corresponding tabs and
@@ -113,10 +113,9 @@ missing simply doesn't appear.
 | key | action |
 |-----|--------|
 | `←` / `→` | previous / next page |
-| `1`–`9` | select tab (arm / subsurvey / DESI) |
-| `s` | cycle 4MOST smoothing |
-| `0` | toggle statistics dashboard |
 | `q` / `Esc` | quit |
+
+Everything else — tabs, per-page, smoothing, sky, the toggles, `[Stats]` — is driven by the on-screen buttons and sliders.
 
 ---
 
@@ -129,7 +128,7 @@ both spectra to a common 1 Å grid, smooths each on a 10 Å scale, forms the rat
 1/99 percentile** envelopes (log y-axis).
 
 ```bash
-python plot_desi_ratio.py [spectra_headers.csv] [options]
+python plot_desi_ratio.py [SPV_objects.fits] [options]
 ```
 
 | option | effect |
@@ -168,21 +167,21 @@ from `viewer.py`, so keep the two scripts together.
 
 ## Expected data layout
 
-`viewer.py` reads a header CSV plus the underlying FITS files. Optional assets unlock
-extra features; place them next to `viewer.py` (or point the CSV's `filepath` column at
-the spectra).
+`viewer.py` reads an index table (FITS or CSV) plus the underlying FITS spectra.
+Optional assets unlock extra features; place them next to `viewer.py` (or point the
+index's `filepath` column at the spectra).
 
 | path | purpose | required |
 |------|---------|----------|
 | `spectra_headers.csv` or `SPV_objects.fits` | index: one row per spectrum (`filepath`, `filename`, `category`, `RA`, `DEC`, SNR/mag, …). CSV or FITS. | **yes** |
-| `LR/ HR/ LRD/ HIZ/` | your 4MOST combination (the CSV `filepath`; used as the `alt` overlay / default fallback) | **yes** |
 | `LR4/ HIZ4/ LRD4/ HR4/` | the L1 combination — the **default** trace (matched by coord) | no |
+| `LR/ HR/ LRD/ HIZ/` | alternate 4MOST combination (the index `filepath`; the `alt` overlay) | **yes** |
 | `SPV_DESI_match.fits` + `DESI_spectra/*.json` | DESI DR1 overlay & tab | no |
 | `S16_*_target_catalogue.fits.gz` | subsurvey tabs (cached to `.subsurvey_cache.csv`) | no |
 | `LR_xpca.fits`, `LRD_xpca.fits`, `HIZ_xpca.fits`, `HR_xpca.fits` | 4XP redshifts for line markers | no |
 | `spectra_tags.csv` | quality tags (created/updated by the viewer) | auto |
 
-The CSV `filepath` column may be absolute or relative to the CSV; unresolved names are
+The index's `filepath` column may be absolute or relative to the index; unresolved names are
 looked up once by basename across the category directories.
 
 ---
