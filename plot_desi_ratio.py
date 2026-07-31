@@ -187,17 +187,29 @@ def build_meta(filenames, csv_path):
                                   errors="coerce")
     meta["rmag"]  = pd.to_numeric(df.reindex(filenames)["CAT_MAG"].values,
                                   errors="coerce")
-    seeing = np.full(len(filenames), np.nan)
-    if os.path.exists(COND_CSV):
-        c = pd.read_csv(COND_CSV, low_memory=False)
-        c["specuid"] = c["filename"].apply(_specuid)
-        smap = (c.dropna(subset=["specuid"]).drop_duplicates("specuid")
-                 .set_index("specuid")["FWHM_AMBI"])
-        seeing = pd.to_numeric(
-            pd.Series([_specuid(fn) for fn in filenames]).map(smap),
-            errors="coerce").to_numpy()
-    else:
-        print(f"  Note: {os.path.basename(COND_CSV)} not found — no seeing cut")
+
+    # seeing (DIMM FWHM): prefer a column already in the index (e.g. after
+    # ingesting conditions.csv into SPV_objects.fits); else join conditions.csv
+    # by SPECUID.
+    seeing = None
+    for col in ("FWHM_AMBI", "SEEING", "seeing"):
+        if col in df.columns:
+            seeing = pd.to_numeric(df.reindex(filenames)[col].values,
+                                   errors="coerce")
+            break
+    if seeing is None:
+        seeing = np.full(len(filenames), np.nan)
+        if os.path.exists(COND_CSV):
+            c = pd.read_csv(COND_CSV, low_memory=False)
+            c["specuid"] = c["filename"].apply(_specuid)
+            smap = (c.dropna(subset=["specuid"]).drop_duplicates("specuid")
+                     .set_index("specuid")["FWHM_AMBI"])
+            seeing = pd.to_numeric(
+                pd.Series([_specuid(fn) for fn in filenames]).map(smap),
+                errors="coerce").to_numpy()
+        else:
+            print(f"  Note: no seeing column and {os.path.basename(COND_CSV)} "
+                  f"not found — no seeing cut")
     meta["seeing"] = seeing
     return meta.reset_index(drop=True)
 

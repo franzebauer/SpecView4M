@@ -76,7 +76,7 @@ reading; the core viewer runs without it.
 
 ```bash
 ./install.sh          # default: spectra index + L1 combination (LR4, HIZ4) + DESI
-./install.sh --full   # also the LR overlay, subsurvey catalogue, xpca, conditions.csv
+./install.sh --full   # also the LR overlay, subsurvey catalogue, xpca
 ```
 
 The default download is enough to browse spectra with the DESI overlay; `--full`
@@ -140,7 +140,7 @@ python plot_desi_ratio.py [spectra_headers.csv] [options]
 | `--normalize` | divide each ratio by its value at the norm wavelength first — isolates the *spectral shape* from the per-object flux offset |
 | `--norm-wave X` | normalisation wavelength in Å (default 5500) |
 | `--recon l1` \| `alt` | which 4MOST reduction to compare: `l1` (default) = L1 combination in `LR4/`; `alt` = your combination in `LR/` |
-| `--seeing-max X` | keep only spectra with DIMM seeing (`FWHM_AMBI` from `conditions.csv`) below X″ |
+| `--seeing-max X` | keep only spectra with DIMM seeing below X″ (`FWHM_AMBI` column in the index) |
 | `--recompute` | rebuild the per-spectrum ratio cache from the spectra |
 
 Examples:
@@ -160,9 +160,9 @@ The per-spectrum ratios are cached to `PLOTS/desi_ratio_cache[_alt].npz`, so re-
 with different splits/normalisation are instant; only `--recompute` (or changed input
 spectra) re-reads the FITS/JSON. Figures are written to `PLOTS/desi_ratio_*.png`.
 
-Needs the DESI assets (`SPV_DESI_match.fits`, `DESI_spectra/`) and — for the seeing
-cut — `conditions.csv`. It imports the readers from `viewer.py`, so keep the two
-scripts together.
+Needs the DESI assets (`SPV_DESI_match.fits`, `DESI_spectra/`); the seeing cut reads
+the `FWHM_AMBI` column from the index (`SPV_objects.fits`). It imports the readers
+from `viewer.py`, so keep the two scripts together.
 
 ---
 
