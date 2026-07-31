@@ -26,8 +26,8 @@ absorption lines at the source redshift, and tag each spectrum's quality to disk
 **Display controls**
 - Independent **4MOST** and **DESI** Gaussian-smoothing sliders (σ in pixels).
 - **Sky-scale** slider.
-- Component toggles: `raw`, `smooth`, `sky`, `err`, `desi`, `alt`, `lines`.
-- Colour scheme: gray = raw, blue = smoothed, green = sky, red = error, pink = DESI, orange = the `alt` (LR) overlay.
+- Component toggles: `smooth`, `sky`, `err`, `desi`, `alt`, `lines` (set the 4MOST σ slider to 0 to see the unsmoothed data).
+- Colour scheme: blue = smoothed, green = sky, red = error, pink = DESI, orange = the `alt` (LR) overlay.
 
 **Overlays**
 - **DESI DR1** overlay (pink), matched by coordinate string via `SPV_DESI_match.fits` → `DESI_spectra/targetid_<id>.json`.
@@ -76,7 +76,7 @@ reading; the core viewer runs without it.
 
 ```bash
 ./install.sh          # default: spectra index + L1 combination (LR4, HIZ4) + DESI
-./install.sh --full   # also the LR overlay, subsurvey catalogue, xpca
+./install.sh --full   # also the LR (alternate combine) overlay, subsurvey catalogue, xpca
 ```
 
 The default download is enough to browse spectra with the DESI overlay; `--full`

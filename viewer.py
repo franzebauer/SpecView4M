@@ -19,7 +19,7 @@ Features
                      from LR/…) and DESI (pink) is drawn only if it exists — no
                      fallback of one into another's colour
   • DESI overlay   : matched DESI DR1 spectrum (pink) via SPV_DESI_match.fits
-  • Spectral theme : gray=raw  blue=smooth  green=sky  red=err  pink=DESI
+  • Spectral theme : blue=smooth  green=sky  red=err  pink=DESI
                      orange=alt (my LR combination)
 
 Keyboard shortcuts
@@ -158,7 +158,6 @@ CAT_LABELS = {
 }
 
 # Spectral plot colours
-C_RAW    = "#c8c8c8"   # very light gray  – raw spectrum
 C_SMOOTH = "#5599ff"   # blue             – smoothed spectrum
 C_SKY    = "#44cc55"   # green            – sky (offset below zero)
 C_ERR    = "#ff5555"   # red              – error spectrum
@@ -712,7 +711,7 @@ def _draw_overlays_only(ax, row, sigma, cat_color,
 
 def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
                       sky_scale=1.0,
-                      show_raw=True, show_smooth=True,
+                      show_smooth=True,
                       show_sky=True, show_err=True,
                       desi_wave=None, desi_flux=None, show_desi=True,
                       desi_sigma=None, show_lines=True, z_override=None,
@@ -807,12 +806,7 @@ def draw_one_spectrum(ax, wave, flux, err, sky, row, sigma, cat_color,
         ax.plot(w_all, err_display,
                 color=C_ERR, alpha=0.55, linewidth=0.45, zorder=2)
 
-    # Raw spectrum
-    if show_raw:
-        ax.plot(w_all, f_all,
-                color=C_RAW, alpha=0.65, linewidth=0.4, zorder=3)
-
-    # Smoothed spectrum (on top)
+    # Smoothed spectrum (on top; set σ=0 to see the unsmoothed data)
     if show_smooth:
         ax.plot(w_all, fs_all,
                 color=C_SMOOTH, alpha=0.92, linewidth=0.9, zorder=4)
@@ -1064,7 +1058,6 @@ class ViewerState:
         self.sigma      = 7.0
         self.sigma_desi = 5.0
         self.sky_scale  = 1.0
-        self.show_raw    = False
         self.show_smooth = True
         self.show_sky    = False
         self.show_err    = False
@@ -1381,7 +1374,6 @@ class FourMostViewer:
         # ── component toggle buttons (replace static legend) ──────────
         rC_y = 0.030; rC_h = 0.030
         _toggle_defs = [
-            ("raw",    C_RAW,    "show_raw"),
             ("smooth", C_SMOOTH, "show_smooth"),
             ("sky",    C_SKY,    "show_sky"),
             ("err",    C_ERR,    "show_err"),
@@ -1546,7 +1538,6 @@ class FourMostViewer:
                 z_over = st.get_tag(str(row.get("filename", ""))).get("z")
             draw_one_spectrum(ax, w, f, e, sky, row, st.sigma, col,
                               sky_scale=st.sky_scale,
-                              show_raw=st.show_raw,
                               show_smooth=st.show_smooth,
                               show_sky=st.show_sky,
                               show_err=st.show_err,
