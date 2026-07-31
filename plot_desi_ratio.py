@@ -30,8 +30,7 @@ import pandas as pd
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
 from viewer import (read_spectrum, read_desi_spectrum, build_desi_index,
-                    build_l1_index, _coord_key, read_index, default_index,
-                    CSV_DEFAULT)
+                    build_l1_index, _coord_key, read_index, default_index)
 
 import matplotlib
 matplotlib.use("Agg")

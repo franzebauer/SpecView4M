@@ -66,8 +66,7 @@ mamba create -n specview python=3.11 numpy pandas matplotlib astropy
 mamba activate specview
 ```
 
-`astropy` is only needed for the subsurvey tabs, xpca redshifts, and DESI-match
-reading; the core viewer runs without it.
+`astropy` is required — the index (`SPV_objects.fits`) and the catalogues are FITS.
 
 ### Get the data
 
@@ -92,9 +91,9 @@ it is safe to re-run.
 python viewer.py [SPV_objects.fits]
 ```
 
-If no path is given it auto-detects `SPV_objects.fits` (or a `spectra_headers.csv`)
-next to `viewer.py`. The index may be a **FITS table** (what `install.sh` fetches —
-compact `SPV_objects.fits`) **or** a CSV with the same columns.
+If no path is given it looks for `SPV_objects.fits` next to `viewer.py` — the
+per-spectrum index table (`filepath`, `filename`, `category`, `RA`, `DEC`, SNR/mag,
+seeing, … columns) that `install.sh` fetches.
 
 **Data location.** All auxiliary data — the spectra, the L1 combination (`LR4/…`),
 the DESI assets, the S16 catalogue, and the `*_xpca.fits` files — is resolved
@@ -167,13 +166,13 @@ from `viewer.py`, so keep the two scripts together.
 
 ## Expected data layout
 
-`viewer.py` reads an index table (FITS or CSV) plus the underlying FITS spectra.
+`viewer.py` reads the `SPV_objects.fits` index plus the underlying FITS spectra.
 Optional assets unlock extra features; place them next to `viewer.py` (or point the
 index's `filepath` column at the spectra).
 
 | path | purpose | required |
 |------|---------|----------|
-| `spectra_headers.csv` or `SPV_objects.fits` | index: one row per spectrum (`filepath`, `filename`, `category`, `RA`, `DEC`, SNR/mag, …). CSV or FITS. | **yes** |
+| `SPV_objects.fits` | index: one row per spectrum (`filepath`, `filename`, `category`, `RA`, `DEC`, SNR/mag, seeing, …). | **yes** |
 | `LR4/ HIZ4/ LRD4/ HR4/` | the L1 combination — the **default** trace (matched by coord) | no |
 | `LR/ HR/ LRD/ HIZ/` | alternate 4MOST combination (the index `filepath`; the `alt` overlay) | **yes** |
 | `SPV_DESI_match.fits` + `DESI_spectra/*.json` | DESI DR1 overlay & tab | no |

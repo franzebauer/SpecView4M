@@ -55,29 +55,23 @@ import matplotlib.ticker
 from matplotlib.widgets import Button, Slider, TextBox
 
 # ── paths ──────────────────────────────────────────────────────────────────
-BASE        = os.path.dirname(os.path.abspath(__file__))
-CSV_DEFAULT = os.path.join(BASE, "spectra_headers.csv")
-# index-table candidates tried (in order) when no path is given on the command line
-INDEX_DEFAULTS = [CSV_DEFAULT, os.path.join(BASE, "SPV_objects.fits")]
+BASE          = os.path.dirname(os.path.abspath(__file__))
+INDEX_DEFAULT = os.path.join(BASE, "SPV_objects.fits")   # per-spectrum index table
 
 
 def read_index(path):
-    """Load the per-spectrum index table into a DataFrame from a .csv or a FITS
-    file (e.g. SPV_objects.fits — same columns, more compact than the CSV)."""
-    if str(path).lower().endswith((".fits", ".fit", ".fits.gz", ".fits.fz")):
-        from astropy.table import Table
-        df = Table.read(path).to_pandas()
-        for c in df.columns:                     # decode FITS byte-strings → str
-            if df[c].dtype == object:
-                df[c] = df[c].map(
-                    lambda v: v.decode() if isinstance(v, (bytes, bytearray))
-                    else v)
-        return df
-    return pd.read_csv(path, low_memory=False)
+    """Load the per-spectrum index table (SPV_objects.fits) into a DataFrame."""
+    from astropy.table import Table
+    df = Table.read(path).to_pandas()
+    for c in df.columns:                         # decode FITS byte-strings → str
+        if df[c].dtype == object:
+            df[c] = df[c].map(
+                lambda v: v.decode() if isinstance(v, (bytes, bytearray)) else v)
+    return df
 
 
 def default_index():
-    return next((p for p in INDEX_DEFAULTS if os.path.exists(p)), CSV_DEFAULT)
+    return INDEX_DEFAULT
 
 # ── LRS arm splice wavelengths (Å) ─────────────────────────────────────────
 LRS_SPLICE_WAVES = [5540, 6900]
@@ -166,7 +160,7 @@ C_ABS    = "#ffd54f"   # amber            – absorption-line markers
 # ── Reductions ──────────────────────────────────────────────────────────────
 #   default (blue trace) = the L1 combination in <category>4 dirs (LR4/HIZ4/…);
 #   "alt" overlay (orange) = my combination in <category> dirs (LR/HIZ/…, the
-#     spectra_headers.csv `filepath`); DESI = pink. Each is drawn only if it
+#     index `filepath`); DESI = pink. Each is drawn only if it
 #     exists — a missing L1 does not fall back to the LR spectrum in blue.
 L1_SUFFIX = "4"
 
@@ -1168,7 +1162,7 @@ class ViewerState:
         return (None, None, None, None, False)
 
     def get_overlay(self, fp):
-        """(wave, flux) of the 'alt' overlay = my combination (LR CSV filepath)."""
+        """(wave, flux) of the 'alt' overlay = my combination (LR index filepath)."""
         w, f, _e, _s = self._get_raw(fp)
         return w, f
 
@@ -1842,23 +1836,23 @@ class FourMostViewer:
 # ── entry point ──────────────────────────────────────────────────────────
 
 def main():
-    csv_path = sys.argv[1] if len(sys.argv) > 1 else default_index()
+    index_path = sys.argv[1] if len(sys.argv) > 1 else default_index()
 
-    if not os.path.exists(csv_path):
-        print(f"ERROR: {csv_path!r} not found.")
-        print("Pass a spectra_headers.csv / SPV_objects.fits, or run ./install.sh")
+    if not os.path.exists(index_path):
+        print(f"ERROR: {index_path!r} not found.")
+        print("Pass an SPV_objects.fits index, or run ./install.sh")
         sys.exit(1)
 
-    print(f"Loading {csv_path} …")
-    df = read_index(csv_path)
+    print(f"Loading {index_path} …")
+    df = read_index(index_path)
 
-    csv_dir = os.path.dirname(os.path.abspath(csv_path))
+    index_dir = os.path.dirname(os.path.abspath(index_path))
     _walk_index = {}          # filename → full path, built once on first miss
     _index_built = [False]
 
     def _build_walk_index():
         for cat in ["LR", "HR", "LRD", "HIZ"]:
-            d = os.path.join(csv_dir, cat)
+            d = os.path.join(index_dir, cat)
             if not os.path.isdir(d):
                 continue
             for root, _dirs, files in os.walk(d):
@@ -1870,7 +1864,7 @@ def main():
         p = str(p)
         if os.path.isabs(p) and os.path.exists(p):
             return p
-        rel = os.path.join(csv_dir, p)
+        rel = os.path.join(index_dir, p)
         if os.path.exists(rel):
             return rel
         if not _index_built[0]:
@@ -1891,10 +1885,10 @@ def main():
     print(f"  {n_match:,} catalogue matches  |  {n_z:,} redshifts measured")
 
     # Auxiliary data (DESI, L1 combination, S16 catalogue, xpca) is resolved
-    # relative to the CSV's directory, so a copy of viewer.py elsewhere still
-    # finds it when pointed at the data CSV. Defaults to BASE when identical.
+    # relative to the index's directory, so a copy of viewer.py elsewhere still
+    # finds it when pointed at the data index. Defaults to BASE when identical.
     import glob as _glob
-    data_dir = csv_dir
+    data_dir = index_dir
 
     desi_index = build_desi_index(
         match_fits=os.path.join(data_dir, "SPV_DESI_match.fits"),
