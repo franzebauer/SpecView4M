@@ -41,7 +41,7 @@ echo "==> Default data (spectra index + L1 combination + DESI)"
 fetch     1HmYz19x-9KuF7nNaPxx1ktPs0JnQMpIh SPV_objects.fits
 
 # L1 combination = the default (blue) trace
-fetch_tar 1-_wKDx3OMNMEbDYG2q7hh3V8-l9DIAQV SPV_LR_L1ver.tar.gz               # -> LR4/
+fetch_tar 1MxGJEEOpSXIs868UKPbX-7XxOvI-DdxJ SPV_LR_L1ver.tar.gz               # -> LR4/
 fetch_tar 1e2LwXTITLl8TIi3VDITBS5vNrVNv-n8T SPV_LRD_L1ver.tar.gz              # -> LRD4/
 fetch_tar 1RgLW3W5rTel7YPNSSlc3R_rNuMDLrjQw SPV_HIZ_L1ver.tar.gz              # -> HIZ4/
 fetch_tar 1d3TUeT0ava5WCNha-8zioIASv4Dc0RR9 SPV_HR_L1ver.tar.gz               # -> HR4/
